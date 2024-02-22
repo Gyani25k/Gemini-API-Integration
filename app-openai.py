@@ -1,15 +1,15 @@
+import openai
 import os
 from flask import Flask, request, jsonify
-import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
-API_KEY = os.getenv('GEMINI_API_KEY')
+API_KEY = os.getenv('OPENAI_API_KEY')
 
-genai.configure(api_key=API_KEY)
+openai.api_key = API_KEY
 
-model = genai.GenerativeModel('gemini-pro')
+MODEL = "gpt-3.5-turbo"
 
 app = Flask(__name__)
 
@@ -22,9 +22,19 @@ PROMPT = """
         
         """
 
-def get_gemini_response(input, user_prompt):
-    response = model.generate_content([input, user_prompt])
-    return response.text
+def get_OPENAI_response(PROMPT,USER_INPUT ):
+    response = openai.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=[
+        {"role": "system", "content":PROMPT},
+        {"role": "user", "content": USER_INPUT},
+    ]
+    )
+    data1=dict(response)
+    data2=dict(data1['choices'][0])
+    data3=dict(data2['message'])
+
+    return data3['content']
 
 comments_queue = []
 
@@ -36,6 +46,7 @@ def check_connection():
         return jsonify({"message": "Connection is good"})
     else:
         return jsonify({"error": "Invalid request"})
+    
 
 @app.route('/put_comments_queue', methods=['POST'])
 def put_comments_queue():
@@ -43,7 +54,7 @@ def put_comments_queue():
     descriptions_list = data.get('descriptions_list', [])
     
     for description in descriptions_list:
-        comments_queue.append({"id": description['id'], "comment": get_gemini_response(PROMPT, description['post_description'])})
+        comments_queue.append({"id": description['id'], "comment": get_OPENAI_response(PROMPT, description['post_description'])})
     
     return jsonify({"message": "Descriptions put to queue"})
 
@@ -62,4 +73,7 @@ def get_created_comments():
     return jsonify({"results_list": results_list})
 
 if __name__ == '__main__':
-    app.run(debug=True,port=8080)
+    app.run(debug=True)
+    
+
+
