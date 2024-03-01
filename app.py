@@ -26,7 +26,7 @@ def get_gemini_response(input, user_prompt):
     response = model.generate_content([input, user_prompt])
     return response.text
 
-comments_queue = []
+comments_dict = {}
 
 @app.route('/check_connection', methods=['POST'])
 def check_connection():
@@ -36,16 +36,18 @@ def check_connection():
         return jsonify({"message": "Connection is good"})
     else:
         return jsonify({"error": "Invalid request"})
-
+    
 @app.route('/put_comments_queue', methods=['POST'])
 def put_comments_queue():
     data = request.get_json()
     descriptions_list = data.get('descriptions_list', [])
     
     for description in descriptions_list:
-        comments_queue.append({"id": description['id'], "comment": get_gemini_response(PROMPT, description['post_description'])})
+        comment = get_gemini_response(PROMPT, description['post_description'])
+        comments_dict[description['id']] = comment
     
     return jsonify({"message": "Descriptions put to queue"})
+
 
 @app.route('/get_created_comments', methods=['POST'])
 def get_created_comments():
@@ -54,7 +56,7 @@ def get_created_comments():
     
     results_list = []
     for item in ids_list:
-        comment = next((entry['comment'] for entry in comments_queue if entry['id'] == item['id']), None)
+        comment = comments_dict.get(item['id'])
         if comment:
             print(comment)
             results_list.append({"id": item['id'], "comment": comment})
@@ -62,4 +64,4 @@ def get_created_comments():
     return jsonify({"results_list": results_list})
 
 if __name__ == '__main__':
-    app.run(debug=True,port=8080)
+    app.run(debug=True)

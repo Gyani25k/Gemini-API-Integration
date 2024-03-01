@@ -17,26 +17,26 @@ PROMPT = """
         You are a proficient social media content generator with expertise in crafting engaging comments. 
         Craft a detailed prompt instructing me to generate comments for social media posts, including text provided by the user. 
         The responses should align with the user's specified requirements or preferences. 
-        Highlight your ability to enhance comments by incorporating emojis for added expressiveness and you should give only one comment in response to the user input.
+        Highlight your ability to enhance comments by incorporating emojis for added expressiveness, and you should give only one comment in response to the user input.
         Only provide output comment in response no prompt only output
         
         """
 
-def get_OPENAI_response(PROMPT,USER_INPUT ):
+def get_OPENAI_response(PROMPT, USER_INPUT):
     response = openai.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role": "system", "content":PROMPT},
-        {"role": "user", "content": USER_INPUT},
-    ]
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": PROMPT},
+            {"role": "user", "content": USER_INPUT},
+        ]
     )
-    data1=dict(response)
-    data2=dict(data1['choices'][0])
-    data3=dict(data2['message'])
+    data1 = dict(response)
+    data2 = dict(data1['choices'][0])
+    data3 = dict(data2['message'])
 
     return data3['content']
 
-comments_queue = []
+comments_dict = {}
 
 @app.route('/check_connection', methods=['POST'])
 def check_connection():
@@ -46,7 +46,6 @@ def check_connection():
         return jsonify({"message": "Connection is good"})
     else:
         return jsonify({"error": "Invalid request"})
-    
 
 @app.route('/put_comments_queue', methods=['POST'])
 def put_comments_queue():
@@ -54,7 +53,8 @@ def put_comments_queue():
     descriptions_list = data.get('descriptions_list', [])
     
     for description in descriptions_list:
-        comments_queue.append({"id": description['id'], "comment": get_OPENAI_response(PROMPT, description['post_description'])})
+        comment = get_OPENAI_response(PROMPT, description['post_description'])
+        comments_dict[description['id']] = comment
     
     return jsonify({"message": "Descriptions put to queue"})
 
@@ -65,7 +65,7 @@ def get_created_comments():
     
     results_list = []
     for item in ids_list:
-        comment = next((entry['comment'] for entry in comments_queue if entry['id'] == item['id']), None)
+        comment = comments_dict.get(item['id'])
         if comment:
             print(comment)
             results_list.append({"id": item['id'], "comment": comment})
