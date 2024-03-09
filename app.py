@@ -1,6 +1,8 @@
 import os
 from flask import Flask, request, jsonify
 import google.generativeai as genai
+import threading
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +29,21 @@ def get_gemini_response(input, user_prompt):
     return response.text
 
 comments_dict = {}
+
+comments_lock = threading.Lock()
+
+def clear_old_comments():
+    while True:
+        time.sleep(3 * 3600) 
+        with comments_lock:
+            current_time = time.time()
+            old_comments = [key for key, timestamp in comments_dict.items() if current_time - timestamp >= 3 * 3600]
+            for key in old_comments:
+                del comments_dict[key]
+            print(f"{len(old_comments)} comments deleted!")
+
+threading.Thread(target=clear_old_comments, daemon=True).start()
+
 
 @app.route('/check_connection', methods=['POST'])
 def check_connection():
@@ -62,6 +79,20 @@ def get_created_comments():
             results_list.append({"id": item['id'], "comment": comment})
     
     return jsonify({"results_list": results_list})
+
+@app.route('/get_message_count',methods=['POST','GET'])
+def get_message_count():
+    try:
+        data = request.get_json()
+        ques = data.get('message','')
+        if ques == "How many generated messages you have now?":
+            msg_count = len(comments_dict)
+            temp = {"message":f"I have {msg_count} messages now"}
+            return jsonify(temp)
+    except Exception as e:
+        temp = {"message":str(e)}
+        return jsonify(temp)
+    
 
 if __name__ == '__main__':
     app.run(debug=True)
