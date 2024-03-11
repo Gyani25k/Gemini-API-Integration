@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import threading
 import time
+import schedule
 
 load_dotenv()
 
@@ -43,14 +44,8 @@ comments_dict = {}
 comments_lock = threading.Lock()
 
 def clear_old_comments():
-    while True:
-        time.sleep(3 * 3600) 
-        with comments_lock:
-            current_time = time.time()
-            old_comments = [key for key, timestamp in comments_dict.items() if current_time - timestamp >= 3 * 3600]
-            for key in old_comments:
-                del comments_dict[key]
-            print(f"{len(old_comments)} comments deleted!")
+    comments_dict = {}
+    print( "comments deleted!")
 
 threading.Thread(target=clear_old_comments, daemon=True).start()
 
@@ -100,6 +95,22 @@ def get_message_count():
     except Exception as e:
         temp = {"message":str(e)}
         return jsonify(temp)
+    
+schedule.every(3).hours.do(clear_old_comments)
+
+
+def schedule_thread():
+    while True:
+        schedule.run_pending()
+        import time
+        time.sleep(1)
+
+
+# Creating a separate thread for the schedule
+schedule_thread = threading.Thread(target=schedule_thread)
+schedule_thread.daemon = True
+schedule_thread.start()
+    
     
 
 if __name__ == '__main__':
