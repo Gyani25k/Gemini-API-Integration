@@ -44,8 +44,12 @@ comments_dict = {}
 comments_lock = threading.Lock()
 
 def clear_old_comments():
-    comments_dict = {}
-    print( "comments deleted!")
+    global comments_dict
+    with comments_lock:
+        comments_dict = {}
+        print("comments_dict",comments_dict)
+        print("Deleting.......")
+        print("comments deleted!")
 
 threading.Thread(target=clear_old_comments, daemon=True).start()
 
