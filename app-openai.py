@@ -50,9 +50,13 @@ comments_lock = threading.Lock()
 
 def clear_old_comments():
     global comments_dict
+    current_time = time.time()
     with comments_lock:
-        comments_dict = {}
-        log_to_file("Comments cleared.")
+        for key, value in list(comments_dict.items()):
+            if current_time - value['timestamp'] >= 10800:
+                del comments_dict[key]
+                log_to_file(f"Comment {key} deleted.")
+        log_to_file("Old comments cleared.")
 
 threading.Thread(target=clear_old_comments, daemon=True).start()
 
@@ -79,7 +83,8 @@ def put_comments_queue():
         
         for description in descriptions_list:
             comment = get_OPENAI_response(PROMPT, description['post_description'])
-            comments_dict[description['id']] = comment
+            with comments_lock:
+                comments_dict[description['id']] = {'comment': comment, 'timestamp': time.time()}
         log_to_file("Comments queued.")
         return jsonify({"message": "Descriptions put to queue"})
     except Exception as e:
@@ -94,10 +99,11 @@ def get_created_comments():
         ids_list = data.get('ids_list', [])
         
         results_list = []
-        for item in ids_list:
-            comment = comments_dict.get(item['id'])
-            if comment:
-                results_list.append({"id": item['id'], "comment": comment})
+        with comments_lock:
+            for item in ids_list:
+                comment_data = comments_dict.get(item['id'])
+                if comment_data:
+                    results_list.append({"id": item['id'], "comment": comment_data['comment']})
         
         return jsonify({"results_list": results_list})
     except Exception as e:
@@ -111,7 +117,8 @@ def get_message_count():
         data = request.get_json()
         ques = data.get('message','')
         if ques == "How many generated messages you have now?":
-            msg_count = len(comments_dict)
+            with comments_lock:
+                msg_count = len(comments_dict)
             temp = {"message":f"I have {msg_count} messages now"}
             return jsonify(temp)
     except Exception as e:
@@ -133,6 +140,3 @@ schedule_thread.start()
 
 if __name__ == '__main__':
     app.run(debug=True)
-    
-
-
